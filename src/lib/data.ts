@@ -1,60 +1,62 @@
 import { supabase } from './supabase';
 import type { Project, TimeEntry } from '../types';
 
-// ---- Projects ----
+// ---- Helpers ----
 
-async function fetchWithTimeout<T>(
-  fn: () => Promise<T>,
-  ms: number
-): Promise<T> {
-  return Promise.race([
-    fn(),
-    new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error('Supabase query timed out')), ms)
-    ),
-  ]);
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
+const ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+
+function getAccessTokenFromStorage(): string | null {
+  try {
+    const key = Object.keys(localStorage).find((k) =>
+      k.startsWith('sb-') && k.endsWith('-auth-token')
+    );
+    if (!key) return null;
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return parsed?.access_token ?? null;
+  } catch {
+    return null;
+  }
 }
 
-export async function fetchUserProjects(userId: string): Promise<Project[]> {
-  let data: { project: unknown }[] | null = null;
-
+async function directRestQuery<T>(
+  path: string,
+  token?: string | null
+): Promise<T> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 8000);
   try {
-    const result = await fetchWithTimeout(
-      () =>
-        supabase
-          .from('user_projects')
-          .select('project:projects(*)')
-          .eq('user_id', userId),
-      6000
-    );
-    if (result.error) throw result.error;
-    data = result.data;
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+      headers: {
+        apikey: ANON_KEY,
+        Authorization: `Bearer ${token || ANON_KEY}`,
+        Accept: 'application/json',
+      },
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+    if (!res.ok) throw new Error(`REST ${res.status}: ${await res.text()}`);
+    return await res.json();
   } catch (err) {
-    console.warn('Supabase client query failed, trying direct REST:', err);
-    const { data: sessionData } = await supabase.auth.getSession();
-    const token = sessionData?.session?.access_token;
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
-    const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+    clearTimeout(timeoutId);
+    throw err;
+  }
+}
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 8000);
-    try {
-      const url = `${supabaseUrl}/rest/v1/user_projects?select=project:projects(*)&user_id=eq.${userId}`;
-      const res = await fetch(url, {
-        headers: {
-          apikey: anonKey,
-          Authorization: `Bearer ${token || anonKey}`,
-        },
-        signal: controller.signal,
-      });
-      clearTimeout(timeoutId);
-      if (!res.ok) throw new Error(`REST ${res.status}: ${await res.text()}`);
-      data = await res.json();
-    } catch (restErr) {
-      clearTimeout(timeoutId);
-      console.error('Direct REST fallback also failed:', restErr);
-      throw restErr;
-    }
+// ---- Projects ----
+
+export async function fetchUserProjects(userId: string, accessToken?: string | null): Promise<Project[]> {
+  const token = accessToken || getAccessTokenFromStorage();
+  const path = `user_projects?select=project:projects(*)&user_id=eq.${userId}`;
+
+  let data: { project: unknown }[] | null;
+  try {
+    data = await directRestQuery<{ project: unknown }[]>(path, token);
+  } catch (err) {
+    console.error('fetchUserProjects failed:', err);
+    throw err;
   }
 
   return (data ?? [])

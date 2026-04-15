@@ -28,7 +28,7 @@ export function useProjectContext(): ProjectContextValue {
 }
 
 export function ProjectProvider({ children }: { children: ReactNode }) {
-  const { user } = useAuth();
+  const { user, accessToken } = useAuth();
   const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -38,20 +38,18 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       setIsLoading(false);
       return;
     }
+    if (!accessToken) {
+      console.info('Waiting for access token before loading projects...');
+      return;
+    }
     setIsLoading(true);
 
-    const TIMEOUT_MS = 8000;
     const MAX_RETRIES = 2;
     let lastErr: unknown;
 
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
       try {
-        const data = await Promise.race([
-          fetchUserProjects(user.id),
-          new Promise<never>((_, reject) =>
-            setTimeout(() => reject(new Error('Project load timed out')), TIMEOUT_MS)
-          ),
-        ]);
+        const data = await fetchUserProjects(user.id, accessToken);
         setProjects(data);
         setIsLoading(false);
         return;
@@ -66,7 +64,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
 
     console.error('All project load attempts failed:', lastErr);
     setIsLoading(false);
-  }, [user]);
+  }, [user, accessToken]);
 
   useEffect(() => {
     loadProjects();

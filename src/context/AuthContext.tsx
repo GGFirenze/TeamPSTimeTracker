@@ -22,6 +22,7 @@ interface AuthContextValue {
   session: Session | null;
   isLoading: boolean;
   isAdmin: boolean;
+  accessToken: string | null;
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
 }
@@ -152,6 +153,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         session,
         isLoading,
         isAdmin: profile?.is_admin ?? false,
+        accessToken: session?.access_token ?? null,
         signInWithGoogle,
         signOut,
       }}
