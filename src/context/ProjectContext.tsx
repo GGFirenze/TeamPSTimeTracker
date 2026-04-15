@@ -39,19 +39,48 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       return;
     }
     setIsLoading(true);
-    try {
-      const data = await fetchUserProjects(user.id);
-      setProjects(data);
-    } catch (err) {
-      console.error('Failed to load projects:', err);
-    } finally {
-      setIsLoading(false);
+
+    const TIMEOUT_MS = 8000;
+    const MAX_RETRIES = 2;
+    let lastErr: unknown;
+
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        const data = await Promise.race([
+          fetchUserProjects(user.id),
+          new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error('Project load timed out')), TIMEOUT_MS)
+          ),
+        ]);
+        setProjects(data);
+        setIsLoading(false);
+        return;
+      } catch (err) {
+        lastErr = err;
+        console.warn(`Project load attempt ${attempt + 1} failed:`, err);
+        if (attempt < MAX_RETRIES) {
+          await new Promise((r) => setTimeout(r, 1000 * (attempt + 1)));
+        }
+      }
     }
+
+    console.error('All project load attempts failed:', lastErr);
+    setIsLoading(false);
   }, [user]);
 
   useEffect(() => {
     loadProjects();
   }, [loadProjects]);
+
+  useEffect(() => {
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && user) {
+        loadProjects();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', onVisibilityChange);
+  }, [loadProjects, user]);
 
   const billableProjects = projects.filter((p) => p.category === 'billable');
   const nonBillableProjects = projects.filter((p) => p.category === 'non-billable');
