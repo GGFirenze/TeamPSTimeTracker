@@ -121,6 +121,26 @@ export async function fetchAllUsers() {
   );
 }
 
+// ---- Calendar Mappings ----
+
+export async function fetchCalendarMappings(userId: string): Promise<{ id: string; keyword: string; project_id: string }[]> {
+  const token = getAccessToken();
+  return restQuery<{ id: string; keyword: string; project_id: string }[]>(
+    `calendar_mappings?select=id,keyword,project_id&user_id=eq.${userId}`,
+    { token }
+  );
+}
+
+export async function saveCalendarMapping(userId: string, keyword: string, projectId: string) {
+  const token = getAccessToken();
+  await restQuery('calendar_mappings', {
+    token,
+    method: 'POST',
+    body: { user_id: userId, keyword: keyword.toLowerCase(), project_id: projectId },
+    upsert: true,
+  });
+}
+
 // ---- Time Entries ----
 
 export async function fetchTodayEntries(userId: string): Promise<TimeEntry[]> {

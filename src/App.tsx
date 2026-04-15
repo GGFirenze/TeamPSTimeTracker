@@ -1,6 +1,6 @@
 import { createPortal } from 'react-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import { ProjectProvider } from './context/ProjectContext';
+import { ProjectProvider, useProjectContext } from './context/ProjectContext';
 import { TimerProvider, useTimerContext } from './context/TimerContext';
 import { LoginPage } from './components/LoginPage';
 import { Header } from './components/Header';
@@ -8,10 +8,13 @@ import { ActiveTimer } from './components/ActiveTimer';
 import { ProjectGrid } from './components/ProjectGrid';
 import { NotesModal } from './components/NotesModal';
 import { IdleWarningModal } from './components/IdleWarningModal';
+import { CalendarSidebar } from './components/CalendarSidebar';
+import { CalendarMatchPrompt } from './components/CalendarMatchPrompt';
 import { TimeLog } from './components/TimeLog';
 import { FloatingWidget } from './components/FloatingWidget';
 import { usePictureInPicture } from './hooks/usePictureInPicture';
 import { useIdleTimeout } from './hooks/useIdleTimeout';
+import { useCalendarSync } from './hooks/useCalendarSync';
 
 function IdleTimeoutManager({ pipWindow }: { pipWindow: Window | null }) {
   const { currentEntry, idleStop } = useTimerContext();
@@ -36,6 +39,47 @@ function IdleTimeoutManager({ pipWindow }: { pipWindow: Window | null }) {
   );
 }
 
+function CalendarManager() {
+  const { googleToken, user, signInWithGoogle } = useAuth();
+  const { projects } = useProjectContext();
+  const { currentEntry, startTimer, requestStop } = useTimerContext();
+
+  const calSync = useCalendarSync(
+    googleToken,
+    user?.id ?? null,
+    projects,
+    currentEntry?.projectId ?? null,
+    startTimer,
+    requestStop
+  );
+
+  if (!googleToken && !calSync.tokenExpired) return null;
+
+  return (
+    <>
+      <CalendarSidebar
+        events={calSync.events}
+        projects={projects}
+        isLoading={calSync.isLoading}
+        tokenExpired={calSync.tokenExpired}
+        onReconnect={signInWithGoogle}
+        onLinkEvent={(_eventId, keyword, projectId) =>
+          calSync.linkEventToProject(keyword, projectId)
+        }
+        onRefresh={calSync.refresh}
+      />
+      {calSync.pendingPrompt && (
+        <CalendarMatchPrompt
+          event={calSync.pendingPrompt}
+          projects={projects}
+          onLink={calSync.linkEventToProject}
+          onDismiss={calSync.dismissPrompt}
+        />
+      )}
+    </>
+  );
+}
+
 function AuthenticatedApp() {
   const { pipWindow, isOpen, openPiP, closePiP, isSupported } =
     usePictureInPicture();
@@ -50,10 +94,13 @@ function AuthenticatedApp() {
             onTogglePiP={isOpen ? closePiP : openPiP}
           />
           <ActiveTimer />
-          <main className="main">
-            <ProjectGrid />
-            <TimeLog />
-          </main>
+          <div className="main-with-calendar">
+            <main className="main">
+              <ProjectGrid />
+              <TimeLog />
+            </main>
+            <CalendarManager />
+          </div>
           <NotesModal />
         </div>
         {pipWindow &&

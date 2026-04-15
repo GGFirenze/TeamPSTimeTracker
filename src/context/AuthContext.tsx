@@ -23,6 +23,7 @@ interface AuthContextValue {
   isLoading: boolean;
   isAdmin: boolean;
   accessToken: string | null;
+  googleToken: string | null;
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
 }
@@ -52,10 +53,15 @@ async function fetchProfileViaRest(
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const GOOGLE_TOKEN_KEY = 'ps-tracker-google-token';
+
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [googleToken, setGoogleToken] = useState<string | null>(
+    () => localStorage.getItem(GOOGLE_TOKEN_KEY)
+  );
 
   useEffect(() => {
     let settled = false;
@@ -82,6 +88,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.info('Auth event:', event);
 
         if (event === 'SIGNED_IN' && s) {
+          if (s.provider_token) {
+            localStorage.setItem(GOOGLE_TOKEN_KEY, s.provider_token);
+            setGoogleToken(s.provider_token);
+          }
           const params = new URLSearchParams(window.location.search);
           if (params.has('code')) {
             window.history.replaceState({}, '', window.location.pathname);
@@ -129,6 +139,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       provider: 'google',
       options: {
         redirectTo: window.location.origin + window.location.pathname,
+        queryParams: {
+          access_type: 'offline',
+          prompt: 'consent',
+        },
+        scopes: 'https://www.googleapis.com/auth/calendar.events.readonly',
       },
     });
   }, []);
@@ -139,6 +154,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch {
       // Force clear even if signOut API fails
     }
+    localStorage.removeItem(GOOGLE_TOKEN_KEY);
+    setGoogleToken(null);
     setUser(null);
     setSession(null);
     setProfile(null);
@@ -153,6 +170,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isLoading,
         isAdmin: profile?.is_admin ?? false,
         accessToken: session?.access_token ?? null,
+        googleToken,
         signInWithGoogle,
         signOut,
       }}

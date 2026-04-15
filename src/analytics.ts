@@ -1,4 +1,4 @@
-export type TimerSource = 'main' | 'pip_widget';
+export type TimerSource = 'main' | 'pip_widget' | 'calendar';
 
 // Analytics stubs -- replace with real implementation when Amplitude is configured for the team project
 export function trackTimerStarted(_projectName: string, _isBillable: boolean, _source: TimerSource) {}
