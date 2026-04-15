@@ -1,0 +1,8 @@
+node_modules
+dist
+.DS_Store
+*.local
+showcase.html
+screenshots/
+PROJECT_EVOLUTION.md
+tsconfig.tsbuildinfo
