@@ -5,10 +5,10 @@ import {
   archiveProject,
   unarchiveProject,
   fetchAllUsers,
+  fetchAllAssignments,
   assignProjectToUser,
   unassignProjectFromUser,
 } from '../lib/data';
-import { supabase } from '../lib/supabase';
 import type { ProjectCategory } from '../types';
 
 interface DbProject {
@@ -44,14 +44,14 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
   const loadData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [p, u] = await Promise.all([fetchAllProjects(), fetchAllUsers()]);
+      const [p, u, a] = await Promise.all([
+        fetchAllProjects(),
+        fetchAllUsers(),
+        fetchAllAssignments(),
+      ]);
       setProjects(p);
       setUsers(u);
-
-      const { data: allAssignments } = await supabase
-        .from('user_projects')
-        .select('user_id, project_id');
-      setAssignments(allAssignments ?? []);
+      setAssignments(a);
     } catch (err) {
       console.error('Failed to load admin data:', err);
     } finally {

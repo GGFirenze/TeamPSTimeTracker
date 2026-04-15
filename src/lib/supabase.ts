@@ -1,35 +1,66 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+export const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
+export const ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
 
-if (!supabaseUrl || !supabaseAnonKey) {
+if (!SUPABASE_URL || !ANON_KEY) {
   throw new Error('Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY environment variables');
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+export const supabase = createClient(SUPABASE_URL, ANON_KEY, {
   auth: {
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: true,
   },
-  global: {
-    fetch: (url: RequestInfo | URL, init?: RequestInit) => {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000);
-      return fetch(url, { ...init, signal: controller.signal }).finally(() =>
-        clearTimeout(timeoutId)
-      );
-    },
-  },
 });
 
-document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible') {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        supabase.auth.refreshSession();
-      }
+export async function restQuery<T>(
+  path: string,
+  options?: { token?: string | null; method?: string; body?: unknown; upsert?: boolean }
+): Promise<T> {
+  const { token, method = 'GET', body, upsert = false } = options ?? {};
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+  const prefer: string[] = [];
+  if (method === 'POST' || method === 'PATCH') prefer.push('return=representation');
+  if (upsert) prefer.push('resolution=merge-duplicates');
+
+  const headers: Record<string, string> = {
+    apikey: ANON_KEY,
+    Authorization: `Bearer ${token || ANON_KEY}`,
+    Accept: 'application/json',
+    'Content-Type': 'application/json',
+  };
+  if (prefer.length) headers['Prefer'] = prefer.join(',');
+
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+      method,
+      headers,
+      body: body ? JSON.stringify(body) : undefined,
+      signal: controller.signal,
     });
+    clearTimeout(timeoutId);
+    if (!res.ok) throw new Error(`REST ${res.status}: ${await res.text()}`);
+    const text = await res.text();
+    return text ? JSON.parse(text) : (undefined as T);
+  } catch (err) {
+    clearTimeout(timeoutId);
+    throw err;
   }
-});
+}
+
+export function getAccessToken(): string | null {
+  try {
+    const key = Object.keys(localStorage).find(
+      (k) => k.startsWith('sb-') && k.endsWith('-auth-token')
+    );
+    if (!key) return null;
+    const parsed = JSON.parse(localStorage.getItem(key) || '');
+    return parsed?.access_token ?? null;
+  } catch {
+    return null;
+  }
+}

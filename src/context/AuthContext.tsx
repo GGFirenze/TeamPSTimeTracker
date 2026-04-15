@@ -6,7 +6,7 @@ import {
   useCallback,
   type ReactNode,
 } from 'react';
-import { supabase } from '../lib/supabase';
+import { supabase, restQuery, getAccessToken } from '../lib/supabase';
 import type { User, Session } from '@supabase/supabase-js';
 
 interface Profile {
@@ -35,28 +35,27 @@ export function useAuth(): AuthContextValue {
   return ctx;
 }
 
+async function fetchProfileViaRest(
+  userId: string,
+  token: string | null
+): Promise<Profile | null> {
+  try {
+    const rows = await restQuery<Profile[]>(
+      `profiles?id=eq.${userId}&select=*&limit=1`,
+      { token }
+    );
+    return rows?.[0] ?? null;
+  } catch (err) {
+    console.error('Profile fetch failed:', err);
+    return null;
+  }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-
-  const fetchProfile = useCallback(async (userId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .single();
-      if (error) {
-        console.error('Failed to fetch profile:', error.message);
-        return;
-      }
-      setProfile(data);
-    } catch (err) {
-      console.error('Profile fetch exception:', err);
-    }
-  }, []);
 
   useEffect(() => {
     let settled = false;
@@ -64,15 +63,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const AUTH_TIMEOUT_MS = 8000;
     const timeout = setTimeout(() => {
       if (!settled) {
-        console.warn('Auth init timed out, falling back to no-session state');
+        console.warn('Auth init timed out');
         settled = true;
         setIsLoading(false);
       }
     }, AUTH_TIMEOUT_MS);
 
+    const settle = () => {
+      if (!settled) {
+        settled = true;
+        clearTimeout(timeout);
+      }
+      setIsLoading(false);
+    };
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, s) => {
-        console.info('Auth event:', event, s?.user?.email);
+        console.info('Auth event:', event);
 
         if (event === 'SIGNED_IN' && s) {
           const params = new URLSearchParams(window.location.search);
@@ -83,47 +90,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         setSession(s);
         setUser(s?.user ?? null);
+
         if (s?.user) {
-          await fetchProfile(s.user.id);
+          const token = s.access_token || getAccessToken();
+          const p = await fetchProfileViaRest(s.user.id, token);
+          setProfile(p);
         } else {
           setProfile(null);
         }
-        if (!settled) {
-          settled = true;
-          clearTimeout(timeout);
-        }
-        setIsLoading(false);
+        settle();
       }
     );
 
     supabase.auth.getSession().then(async ({ data: { session: s } }) => {
       if (settled) return;
       if (!s) {
-        settled = true;
-        clearTimeout(timeout);
-        setIsLoading(false);
+        settle();
         return;
       }
       setSession(s);
       setUser(s.user);
-      await fetchProfile(s.user.id);
-      settled = true;
-      clearTimeout(timeout);
-      setIsLoading(false);
+      const p = await fetchProfileViaRest(s.user.id, s.access_token);
+      setProfile(p);
+      settle();
     }).catch((err) => {
       console.error('getSession failed:', err);
-      if (!settled) {
-        settled = true;
-        clearTimeout(timeout);
-        setIsLoading(false);
-      }
+      settle();
     });
 
     return () => {
       clearTimeout(timeout);
       subscription.unsubscribe();
     };
-  }, [fetchProfile]);
+  }, []);
 
   const signInWithGoogle = useCallback(async () => {
     await supabase.auth.signInWithOAuth({
