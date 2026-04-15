@@ -60,38 +60,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let settled = false;
 
-    const AUTH_TIMEOUT_MS = 5000;
+    const AUTH_TIMEOUT_MS = 8000;
     const timeout = setTimeout(() => {
       if (!settled) {
+        console.warn('Auth init timed out, falling back to no-session state');
         settled = true;
         setIsLoading(false);
       }
     }, AUTH_TIMEOUT_MS);
 
-    supabase.auth.getSession().then(async ({ data: { session: s } }) => {
-      if (settled) return;
-      setSession(s);
-      setUser(s?.user ?? null);
-      if (s?.user) await fetchProfile(s.user.id);
-      settled = true;
-      clearTimeout(timeout);
-      setIsLoading(false);
-    }).catch(() => {
-      if (!settled) {
-        settled = true;
-        clearTimeout(timeout);
-        setIsLoading(false);
-      }
-    });
-
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, s) => {
+        console.info('Auth event:', event, s?.user?.email);
+
+        if (event === 'SIGNED_IN' && s) {
+          const params = new URLSearchParams(window.location.search);
+          if (params.has('code')) {
+            window.history.replaceState({}, '', window.location.pathname);
+          }
+        }
+
         setSession(s);
         setUser(s?.user ?? null);
         if (s?.user) {
-          if (event === 'TOKEN_REFRESHED' || event === 'SIGNED_IN' || !profile) {
-            await fetchProfile(s.user.id);
-          }
+          await fetchProfile(s.user.id);
         } else {
           setProfile(null);
         }
@@ -102,6 +94,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setIsLoading(false);
       }
     );
+
+    supabase.auth.getSession().then(async ({ data: { session: s } }) => {
+      if (settled) return;
+      if (!s) {
+        settled = true;
+        clearTimeout(timeout);
+        setIsLoading(false);
+        return;
+      }
+      setSession(s);
+      setUser(s.user);
+      await fetchProfile(s.user.id);
+      settled = true;
+      clearTimeout(timeout);
+      setIsLoading(false);
+    }).catch((err) => {
+      console.error('getSession failed:', err);
+      if (!settled) {
+        settled = true;
+        clearTimeout(timeout);
+        setIsLoading(false);
+      }
+    });
 
     return () => {
       clearTimeout(timeout);

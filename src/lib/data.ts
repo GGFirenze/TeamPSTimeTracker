@@ -3,29 +3,58 @@ import type { Project, TimeEntry } from '../types';
 
 // ---- Projects ----
 
+async function fetchWithTimeout<T>(
+  fn: () => Promise<T>,
+  ms: number
+): Promise<T> {
+  return Promise.race([
+    fn(),
+    new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('Supabase query timed out')), ms)
+    ),
+  ]);
+}
+
 export async function fetchUserProjects(userId: string): Promise<Project[]> {
-  const { data: session } = await supabase.auth.getSession();
-  if (!session?.session) {
-    console.warn('fetchUserProjects: no active session, attempting refresh');
-    const { error: refreshErr } = await supabase.auth.refreshSession();
-    if (refreshErr) {
-      console.error('Session refresh failed:', refreshErr.message);
-      throw new Error('No active session');
+  let data: { project: unknown }[] | null = null;
+
+  try {
+    const result = await fetchWithTimeout(
+      () =>
+        supabase
+          .from('user_projects')
+          .select('project:projects(*)')
+          .eq('user_id', userId),
+      6000
+    );
+    if (result.error) throw result.error;
+    data = result.data;
+  } catch (err) {
+    console.warn('Supabase client query failed, trying direct REST:', err);
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData?.session?.access_token;
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
+    const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
+    try {
+      const url = `${supabaseUrl}/rest/v1/user_projects?select=project:projects(*)&user_id=eq.${userId}`;
+      const res = await fetch(url, {
+        headers: {
+          apikey: anonKey,
+          Authorization: `Bearer ${token || anonKey}`,
+        },
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+      if (!res.ok) throw new Error(`REST ${res.status}: ${await res.text()}`);
+      data = await res.json();
+    } catch (restErr) {
+      clearTimeout(timeoutId);
+      console.error('Direct REST fallback also failed:', restErr);
+      throw restErr;
     }
-  }
-
-  const { data, error } = await supabase
-    .from('user_projects')
-    .select('project:projects(*)')
-    .eq('user_id', userId);
-
-  if (error) {
-    console.error('fetchUserProjects error:', error.message, error.details, error.hint);
-    throw error;
-  }
-
-  if (!data || data.length === 0) {
-    console.info('fetchUserProjects: query returned 0 rows for user', userId);
   }
 
   return (data ?? [])
