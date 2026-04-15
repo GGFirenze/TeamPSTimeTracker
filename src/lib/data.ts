@@ -4,12 +4,29 @@ import type { Project, TimeEntry } from '../types';
 // ---- Projects ----
 
 export async function fetchUserProjects(userId: string): Promise<Project[]> {
+  const { data: session } = await supabase.auth.getSession();
+  if (!session?.session) {
+    console.warn('fetchUserProjects: no active session, attempting refresh');
+    const { error: refreshErr } = await supabase.auth.refreshSession();
+    if (refreshErr) {
+      console.error('Session refresh failed:', refreshErr.message);
+      throw new Error('No active session');
+    }
+  }
+
   const { data, error } = await supabase
     .from('user_projects')
     .select('project:projects(*)')
     .eq('user_id', userId);
 
-  if (error) throw error;
+  if (error) {
+    console.error('fetchUserProjects error:', error.message, error.details, error.hint);
+    throw error;
+  }
+
+  if (!data || data.length === 0) {
+    console.info('fetchUserProjects: query returned 0 rows for user', userId);
+  }
 
   return (data ?? [])
     .map((row) => {
@@ -19,6 +36,7 @@ export async function fetchUserProjects(userId: string): Promise<Project[]> {
         category: 'billable' | 'non-billable';
         archived: boolean;
       };
+      if (!p || !p.id) return null;
       return {
         id: p.id,
         name: p.name,
@@ -26,7 +44,7 @@ export async function fetchUserProjects(userId: string): Promise<Project[]> {
         isDefault: true,
       } satisfies Project;
     })
-    .filter((p) => p !== null);
+    .filter((p): p is Project => p !== null);
 }
 
 export async function fetchAllProjects(): Promise<(Project & { archived: boolean })[]> {
