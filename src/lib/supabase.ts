@@ -8,8 +8,8 @@ if (!SUPABASE_URL || !ANON_KEY) {
   throw new Error('Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY environment variables');
 }
 
-// Use processLock instead of navigator.locks to avoid the Web Locks API
-// deadlock during OAuth code exchange (supabase-js #2013, #2111, PR #2235)
+// Bypass the Web Locks API deadlock during OAuth code exchange.
+// See: supabase-js #2013, #2111, PR #2235
 export const supabase = createClient(SUPABASE_URL, ANON_KEY, {
   auth: {
     autoRefreshToken: true,
