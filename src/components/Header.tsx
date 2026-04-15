@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { formatTimeCompact } from '../hooks/useTimer';
 import { trackPopOutClicked } from '../analytics';
 import { AdminPanel } from './AdminPanel';
+import { BrowseProjectsModal } from './BrowseProjectsModal';
 import { useProjectContext } from '../context/ProjectContext';
 
 interface HeaderProps {
@@ -17,6 +18,7 @@ export function Header({ pipSupported, pipOpen, onTogglePiP }: HeaderProps) {
   const { profile, isAdmin, signOut } = useAuth();
   const { refreshProjects } = useProjectContext();
   const [showAdmin, setShowAdmin] = useState(false);
+  const [showBrowse, setShowBrowse] = useState(false);
   const totalSeconds = todayBillableSeconds + todayNonBillableSeconds;
 
   const today = new Date().toLocaleDateString('en-US', {
@@ -72,6 +74,13 @@ export function Header({ pipSupported, pipOpen, onTogglePiP }: HeaderProps) {
               {pipOpen ? 'Pop In' : 'Pop Out'}
             </button>
           )}
+          <button
+            className="browse-btn"
+            onClick={() => setShowBrowse(true)}
+            title="Browse and add projects to your tracker"
+          >
+            + Projects
+          </button>
           {isAdmin && (
             <button
               className="admin-btn"
@@ -91,6 +100,14 @@ export function Header({ pipSupported, pipOpen, onTogglePiP }: HeaderProps) {
           <AdminPanel
             onClose={() => {
               setShowAdmin(false);
+              refreshProjects();
+            }}
+          />
+        )}
+        {showBrowse && (
+          <BrowseProjectsModal
+            onClose={() => {
+              setShowBrowse(false);
               refreshProjects();
             }}
           />
