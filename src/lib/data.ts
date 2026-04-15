@@ -9,23 +9,23 @@ export async function fetchUserProjects(userId: string, accessToken?: string | n
 
   const data = await restQuery<{ project: unknown }[]>(path, { token });
 
-  return (data ?? [])
-    .map((row) => {
-      const p = row.project as unknown as {
-        id: string;
-        name: string;
-        category: 'billable' | 'non-billable';
-        archived: boolean;
-      };
-      if (!p || !p.id) return null;
-      return {
-        id: p.id,
-        name: p.name,
-        category: p.category,
-        isDefault: true,
-      } satisfies Project;
-    })
-    .filter((p): p is Project => p !== null);
+  const rows = (data ?? []).map((row) => {
+    const p = row.project as unknown as {
+      id: string;
+      name: string;
+      category: 'billable' | 'non-billable';
+      archived: boolean;
+    };
+    if (!p || !p.id) return null;
+    const proj: Project = {
+      id: p.id,
+      name: p.name,
+      category: p.category,
+      isDefault: true,
+    };
+    return proj;
+  });
+  return rows.filter((p): p is Project => p !== null);
 }
 
 export async function fetchAllProjects(): Promise<(Project & { archived: boolean })[]> {
