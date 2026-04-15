@@ -8,11 +8,18 @@ import type { Project } from '../types';
 
 const POLL_INTERVAL_MS = 60_000;
 
+export interface CalendarNotification {
+  message: string;
+  type: 'start' | 'stop';
+}
+
 export interface CalendarSyncState {
   events: MatchedEvent[];
   isLoading: boolean;
   tokenExpired: boolean;
   pendingPrompt: MatchedEvent | null;
+  notification: CalendarNotification | null;
+  dismissNotification: () => void;
   dismissPrompt: () => void;
   linkEventToProject: (keyword: string, projectId: string) => Promise<void>;
   refresh: () => Promise<void>;
@@ -31,6 +38,7 @@ export function useCalendarSync(
   const [isLoading, setIsLoading] = useState(false);
   const [tokenExpired, setTokenExpired] = useState(false);
   const [pendingPrompt, setPendingPrompt] = useState<MatchedEvent | null>(null);
+  const [notification, setNotification] = useState<CalendarNotification | null>(null);
 
   const activeCalendarEventIdRef = useRef<string | null>(null);
   const dismissedPromptsRef = useRef<Set<string>>(new Set());
@@ -94,8 +102,13 @@ export function useCalendarSync(
         !userOverrodeRef.current
       ) {
         if (!currentTimerProjectId) {
+          const proj = projects.find((p) => p.id === currentEvent.matchedProjectId);
           startTimer(currentEvent.matchedProjectId, 'calendar');
           activeCalendarEventIdRef.current = currentEvent.id;
+          setNotification({
+            message: `Timer started for ${proj?.name ?? 'project'} (calendar sync)`,
+            type: 'start',
+          });
         } else if (currentTimerProjectId === currentEvent.matchedProjectId) {
           activeCalendarEventIdRef.current = currentEvent.id;
         }
@@ -106,7 +119,12 @@ export function useCalendarSync(
       );
       if (prevEvent && now >= prevEvent.end) {
         if (currentTimerProjectId === prevEvent.matchedProjectId) {
+          const proj = projects.find((p) => p.id === prevEvent.matchedProjectId);
           requestStop('calendar');
+          setNotification({
+            message: `Timer stopped for ${proj?.name ?? 'project'} — meeting ended`,
+            type: 'stop',
+          });
         }
         activeCalendarEventIdRef.current = null;
         userOverrodeRef.current = false;
@@ -142,6 +160,15 @@ export function useCalendarSync(
     }
   }, [currentTimerProjectId, matchedEvents]);
 
+  // Auto-dismiss notification after 5 seconds
+  useEffect(() => {
+    if (!notification) return;
+    const timer = setTimeout(() => setNotification(null), 5000);
+    return () => clearTimeout(timer);
+  }, [notification]);
+
+  const dismissNotification = useCallback(() => setNotification(null), []);
+
   const dismissPrompt = useCallback(() => {
     if (pendingPrompt) {
       dismissedPromptsRef.current.add(pendingPrompt.id);
@@ -164,6 +191,8 @@ export function useCalendarSync(
     isLoading,
     tokenExpired,
     pendingPrompt,
+    notification,
+    dismissNotification,
     dismissPrompt,
     linkEventToProject,
     refresh,

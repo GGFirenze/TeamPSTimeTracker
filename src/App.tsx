@@ -10,6 +10,7 @@ import { NotesModal } from './components/NotesModal';
 import { IdleWarningModal } from './components/IdleWarningModal';
 import { CalendarSidebar } from './components/CalendarSidebar';
 import { CalendarMatchPrompt } from './components/CalendarMatchPrompt';
+import { CalendarToast } from './components/CalendarToast';
 import { TimeLog } from './components/TimeLog';
 import { FloatingWidget } from './components/FloatingWidget';
 import { usePictureInPicture } from './hooks/usePictureInPicture';
@@ -74,6 +75,12 @@ function CalendarManager() {
           projects={projects}
           onLink={calSync.linkEventToProject}
           onDismiss={calSync.dismissPrompt}
+        />
+      )}
+      {calSync.notification && (
+        <CalendarToast
+          notification={calSync.notification}
+          onDismiss={calSync.dismissNotification}
         />
       )}
     </>
