@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { formatTimeCompact } from '../hooks/useTimer';
 import { trackPopOutClicked } from '../analytics';
 import { AdminPanel } from './AdminPanel';
-import { BrowseProjectsModal } from './BrowseProjectsModal';
+import { ManageProjectsModal } from './BrowseProjectsModal';
 import { useProjectContext } from '../context/ProjectContext';
 
 interface HeaderProps {
@@ -77,9 +77,9 @@ export function Header({ pipSupported, pipOpen, onTogglePiP }: HeaderProps) {
           <button
             className="browse-btn"
             onClick={() => setShowBrowse(true)}
-            title="Browse and add projects to your tracker"
+            title="Manage your project list"
           >
-            + Projects
+            Manage Projects
           </button>
           {isAdmin && (
             <button
@@ -105,7 +105,7 @@ export function Header({ pipSupported, pipOpen, onTogglePiP }: HeaderProps) {
           />
         )}
         {showBrowse && (
-          <BrowseProjectsModal
+          <ManageProjectsModal
             onClose={() => {
               setShowBrowse(false);
               refreshProjects();

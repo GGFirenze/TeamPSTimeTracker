@@ -1,89 +1,89 @@
-import { useState, useEffect, useCallback } from 'react';
-import { fetchAllProjects, assignProjectToUser, unassignProjectFromUser } from '../lib/data';
+import { useState } from 'react';
+import { unassignProjectFromUser } from '../lib/data';
 import { useAuth } from '../context/AuthContext';
 import { useProjectContext } from '../context/ProjectContext';
-import type { ProjectCategory } from '../types';
+import type { Project } from '../types';
 
-interface AvailableProject {
-  id: string;
-  name: string;
-  category: ProjectCategory;
-  archived: boolean;
+interface RemoveConfirmState {
+  project: Project;
+  typedName: string;
 }
 
-export function BrowseProjectsModal({ onClose }: { onClose: () => void }) {
+export function ManageProjectsModal({ onClose }: { onClose: () => void }) {
   const { user } = useAuth();
-  const { projects: myProjects, refreshProjects } = useProjectContext();
-  const [allProjects, setAllProjects] = useState<AvailableProject[]>([]);
-  const [search, setSearch] = useState('');
-  const [isLoading, setIsLoading] = useState(true);
+  const { projects, refreshProjects } = useProjectContext();
+  const [confirmState, setConfirmState] = useState<RemoveConfirmState | null>(null);
+  const [isRemoving, setIsRemoving] = useState(false);
 
-  const loadProjects = useCallback(async () => {
-    setIsLoading(true);
+  const billable = projects.filter((p) => p.category === 'billable');
+  const nonBillable = projects.filter((p) => p.category === 'non-billable');
+
+  const handleRemove = async () => {
+    if (!user || !confirmState) return;
+    if (confirmState.typedName.trim().toLowerCase() !== confirmState.project.name.toLowerCase()) return;
+    setIsRemoving(true);
     try {
-      const data = await fetchAllProjects();
-      setAllProjects(data.filter((p) => !p.archived));
-    } catch (err) {
-      console.error('Failed to load projects:', err);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadProjects();
-  }, [loadProjects]);
-
-  const myProjectIds = new Set(myProjects.map((p) => p.id));
-
-  const filtered = allProjects.filter((p) =>
-    p.name.toLowerCase().includes(search.toLowerCase())
-  );
-
-  const handleToggle = async (projectId: string) => {
-    if (!user) return;
-    try {
-      if (myProjectIds.has(projectId)) {
-        await unassignProjectFromUser(user.id, projectId);
-      } else {
-        await assignProjectToUser(user.id, projectId);
-      }
+      await unassignProjectFromUser(user.id, confirmState.project.id);
+      setConfirmState(null);
       await refreshProjects();
-      await loadProjects();
     } catch (err) {
-      console.error('Failed to toggle project:', err);
+      console.error('Failed to remove project:', err);
+    } finally {
+      setIsRemoving(false);
     }
   };
 
-  const billable = filtered.filter((p) => p.category === 'billable');
-  const nonBillable = filtered.filter((p) => p.category === 'non-billable');
+  const nameMatches = confirmState
+    ? confirmState.typedName.trim().toLowerCase() === confirmState.project.name.toLowerCase()
+    : false;
 
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal admin-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2 className="modal-title">Browse Projects</h2>
+          <h2 className="modal-title">Manage Projects</h2>
           <button className="modal-close" onClick={onClose}>
             &times;
           </button>
         </div>
 
-        <div className="browse-search">
-          <input
-            className="admin-input"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search projects..."
-            autoFocus
-          />
-        </div>
-
-        {isLoading ? (
-          <div className="admin-loading">Loading...</div>
+        {confirmState ? (
+          <div className="admin-content manage-confirm">
+            <p className="manage-confirm-text">
+              Remove <strong>{confirmState.project.name}</strong> from your tracker?
+            </p>
+            <p className="manage-confirm-hint">
+              Type <strong>{confirmState.project.name}</strong> to confirm.
+            </p>
+            <input
+              className="admin-input manage-confirm-input"
+              value={confirmState.typedName}
+              onChange={(e) =>
+                setConfirmState({ ...confirmState, typedName: e.target.value })
+              }
+              placeholder={confirmState.project.name}
+              autoFocus
+            />
+            <div className="manage-confirm-actions">
+              <button
+                className="manage-confirm-btn manage-confirm-btn--remove"
+                onClick={handleRemove}
+                disabled={!nameMatches || isRemoving}
+              >
+                {isRemoving ? 'Removing...' : 'Remove Project'}
+              </button>
+              <button
+                className="manage-confirm-btn manage-confirm-btn--cancel"
+                onClick={() => setConfirmState(null)}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
         ) : (
           <div className="admin-content browse-content">
             <p className="browse-hint">
-              Toggle projects to add or remove them from your tracker.
+              Your assigned projects. Remove any you no longer need.
             </p>
 
             {billable.length > 0 && (
@@ -92,17 +92,15 @@ export function BrowseProjectsModal({ onClose }: { onClose: () => void }) {
                   <span className="column-dot column-dot--billable" /> Billable ({billable.length})
                 </div>
                 {billable.map((p) => (
-                  <label key={p.id} className="admin-user-row">
-                    <input
-                      type="checkbox"
-                      checked={myProjectIds.has(p.id)}
-                      onChange={() => handleToggle(p.id)}
-                      className="admin-checkbox"
-                    />
-                    <span className="admin-user-info">
-                      <span className="admin-user-name">{p.name}</span>
-                    </span>
-                  </label>
+                  <div key={p.id} className="manage-project-row">
+                    <span className="manage-project-name">{p.name}</span>
+                    <button
+                      className="manage-remove-btn"
+                      onClick={() => setConfirmState({ project: p, typedName: '' })}
+                    >
+                      Remove
+                    </button>
+                  </div>
                 ))}
               </>
             )}
@@ -113,25 +111,21 @@ export function BrowseProjectsModal({ onClose }: { onClose: () => void }) {
                   <span className="column-dot column-dot--nonbillable" /> Non-Billable ({nonBillable.length})
                 </div>
                 {nonBillable.map((p) => (
-                  <label key={p.id} className="admin-user-row">
-                    <input
-                      type="checkbox"
-                      checked={myProjectIds.has(p.id)}
-                      onChange={() => handleToggle(p.id)}
-                      className="admin-checkbox"
-                    />
-                    <span className="admin-user-info">
-                      <span className="admin-user-name">{p.name}</span>
-                    </span>
-                  </label>
+                  <div key={p.id} className="manage-project-row">
+                    <span className="manage-project-name">{p.name}</span>
+                    <button
+                      className="manage-remove-btn"
+                      onClick={() => setConfirmState({ project: p, typedName: '' })}
+                    >
+                      Remove
+                    </button>
+                  </div>
                 ))}
               </>
             )}
 
-            {filtered.length === 0 && (
-              <p className="admin-empty">
-                {search ? 'No projects match your search.' : 'No projects available.'}
-              </p>
+            {projects.length === 0 && (
+              <p className="admin-empty">No projects assigned to you.</p>
             )}
           </div>
         )}

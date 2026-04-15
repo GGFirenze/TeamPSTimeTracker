@@ -1916,6 +1916,99 @@ body {
   margin: 0 0 1rem;
 }
 
+/* ---- Manage Projects ---- */
+
+.manage-project-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius-sm);
+  transition: background 0.15s;
+}
+
+.manage-project-row:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.manage-project-name {
+  font-size: 0.85rem;
+  color: var(--color-text);
+}
+
+.manage-remove-btn {
+  font-size: 0.7rem;
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.manage-remove-btn:hover {
+  background: var(--color-danger);
+  border-color: var(--color-danger);
+  color: #fff;
+}
+
+.manage-confirm {
+  padding: 1.5rem;
+}
+
+.manage-confirm-text {
+  font-size: 0.9rem;
+  color: var(--color-text);
+  margin: 0 0 0.5rem;
+}
+
+.manage-confirm-hint {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  margin: 0 0 0.75rem;
+}
+
+.manage-confirm-input {
+  margin-bottom: 1rem;
+}
+
+.manage-confirm-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.manage-confirm-btn {
+  flex: 1;
+  padding: 0.6rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.manage-confirm-btn--remove {
+  border: none;
+  background: var(--color-danger);
+  color: #fff;
+}
+
+.manage-confirm-btn--remove:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.manage-confirm-btn--cancel {
+  border: 1px solid var(--color-border);
+  background: transparent;
+  color: var(--color-text-muted);
+}
+
+.manage-confirm-btn--cancel:hover {
+  background: var(--color-bg);
+}
+
 /* ---- Idle Warning Modal ---- */
 
 .idle-warning-overlay {
