@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 
-const IDLE_THRESHOLD_MS = 30 * 60 * 1000; // 30 minutes
-const WARNING_DURATION_MS = 5 * 60 * 1000; // 5 minutes
+const IDLE_THRESHOLD_MS = 1 * 60 * 1000; // DEMO: 1 minute (revert to 30 * 60 * 1000)
+const WARNING_DURATION_MS = 30 * 1000; // DEMO: 30 seconds (revert to 5 * 60 * 1000)
 
 export interface IdleState {
   isWarning: boolean;
