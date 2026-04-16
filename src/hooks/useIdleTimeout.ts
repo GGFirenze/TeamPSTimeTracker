@@ -26,6 +26,7 @@ export function useIdleTimeout(
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const warningTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const warningDeadlineRef = useRef<number>(0);
+  const isWarningRef = useRef(false);
   const onIdleTimeoutRef = useRef(onIdleTimeout);
   onIdleTimeoutRef.current = onIdleTimeout;
 
@@ -45,6 +46,7 @@ export function useIdleTimeout(
   }, []);
 
   const dismissWarning = useCallback(() => {
+    isWarningRef.current = false;
     setIsWarning(false);
     setWarningSecondsLeft(0);
     clearAllTimers();
@@ -52,6 +54,7 @@ export function useIdleTimeout(
   }, [clearAllTimers, resetActivity]);
 
   const startWarningCountdown = useCallback(() => {
+    isWarningRef.current = true;
     setIsWarning(true);
     warningDeadlineRef.current = Date.now() + WARNING_DURATION_MS;
     setWarningSecondsLeft(Math.ceil(WARNING_DURATION_MS / 1000));
@@ -72,13 +75,16 @@ export function useIdleTimeout(
   const scheduleIdleCheck = useCallback(() => {
     if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
 
+    const elapsed = Date.now() - lastActivityRef.current;
+    const remaining = Math.max(IDLE_THRESHOLD_MS - elapsed, 1000);
+
     idleTimerRef.current = setTimeout(() => {
       if (Date.now() - lastActivityRef.current >= IDLE_THRESHOLD_MS) {
         startWarningCountdown();
       } else {
         scheduleIdleCheck();
       }
-    }, IDLE_THRESHOLD_MS);
+    }, remaining);
   }, [startWarningCountdown]);
 
   useEffect(() => {
@@ -93,10 +99,11 @@ export function useIdleTimeout(
     scheduleIdleCheck();
 
     const onActivity = () => {
-      resetActivity();
-      if (isWarning) {
+      if (isWarningRef.current) {
         dismissWarning();
         scheduleIdleCheck();
+      } else {
+        resetActivity();
       }
     };
 
@@ -107,7 +114,7 @@ export function useIdleTimeout(
       events.forEach((evt) => window.removeEventListener(evt, onActivity));
       clearAllTimers();
     };
-  }, [isTimerRunning, isWarning, clearAllTimers, resetActivity, scheduleIdleCheck, dismissWarning]);
+  }, [isTimerRunning, clearAllTimers, resetActivity, scheduleIdleCheck, dismissWarning]);
 
   return { isWarning, warningSecondsLeft, dismissWarning };
 }
