@@ -278,7 +278,7 @@
     <!-- V4 -->
     <div class="tl-item">
       <div class="tl-dot" style="background:var(--pink)"></div>
-      <div class="tl-phase" style="color:var(--pink)">Phase 4 &mdash; Smart Automation (current)</div>
+      <div class="tl-phase" style="color:var(--pink)">Phase 4 &mdash; Smart Automation</div>
       <div class="tl-title">Calendar Sync &amp; Intelligence</div>
       <div class="tl-desc">Google Calendar integration with auto-start/stop timers, idle timeout detection, Amplitude SDK instrumentation, and self-serve project management.</div>
       <div class="tl-card">
@@ -292,6 +292,28 @@
           <h4>New analytics</h4>
           <ul>
             <li>Amplitude Browser SDK integrated</li><li>source: calendar for timer events</li><li>Calendar Event Linked</li><li>Idle Timeout event</li><li>Project Removed event</li><li>Sign In Completed with user identity</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- V5 -->
+    <div class="tl-item">
+      <div class="tl-dot" style="background:var(--blue)"></div>
+      <div class="tl-phase" style="color:var(--blue)">Phase 5 &mdash; Voice &amp; Polish (current)</div>
+      <div class="tl-title">Voice Dictation &amp; Refinements</div>
+      <div class="tl-desc">Voice-to-text note capture via the Web Speech API, enriched analytics with full note content, and idle timeout reliability fixes.</div>
+      <div class="tl-card">
+        <div>
+          <h4>What's new</h4>
+          <ul>
+            <li>Voice-to-text dictation for session notes</li><li>Mic toggle with listening indicator</li><li>Dictation + keyboard shortcut coexistence</li><li>Idle timeout bug fix (stale closure + activity reset)</li>
+          </ul>
+        </div>
+        <div>
+          <h4>Analytics updates</h4>
+          <ul>
+            <li>note_text property on Note Submitted</li><li>Web Speech API (Chrome, Edge, Safari 17+)</li>
           </ul>
         </div>
       </div>
@@ -379,6 +401,11 @@
       <h3>Idle Timeout</h3>
       <p>Detects 30 minutes of inactivity, warns for 5 minutes, then auto-stops and rewinds to the nearest half-hour. No more runaway timers.</p>
     </div>
+    <div class="feature-card">
+      <div class="feature-icon" style="background:var(--blue-bg);color:var(--blue)">&#127908;</div>
+      <h3>Voice Dictation</h3>
+      <p>Dictate session notes hands-free using the Web Speech API. Transcription appends in real time, and keyboard shortcuts still work mid-dictation.</p>
+    </div>
   </div>
 </section>
 
@@ -430,6 +457,7 @@
       <span class="stack-tag">Document PiP API</span>
       <span class="stack-tag">Amplitude Browser SDK</span>
       <span class="stack-tag">Google Calendar API</span>
+      <span class="stack-tag">Web Speech API</span>
       <span class="stack-tag">CSS Custom Properties</span>
       <span class="stack-tag">Vercel</span>
     </div>
@@ -452,7 +480,7 @@
         <tr><td><code>Timer Started</code></td><td>project_name, is_billable, source</td><td>User or calendar sync starts a timer</td></tr>
         <tr><td><code>Timer Paused</code></td><td>project_name, is_billable, duration_seconds, source</td><td>User pauses a timer</td></tr>
         <tr><td><code>Timer Stopped</code></td><td>project_name, is_billable, duration_seconds, source</td><td>User, calendar, or idle timeout stops a timer</td></tr>
-        <tr><td><code>Note Submitted</code></td><td>project_name, is_billable, note_length</td><td>User saves a session note</td></tr>
+        <tr><td><code>Note Submitted</code></td><td>project_name, is_billable, note_text, note_length</td><td>User saves a session note</td></tr>
         <tr><td><code>Note Skipped</code></td><td>project_name, is_billable</td><td>User skips the note</td></tr>
         <tr><td><code>Widget Popped Out</code></td><td>&mdash;</td><td>User opens the floating widget</td></tr>
         <tr><td><code>Widget Popped In</code></td><td>&mdash;</td><td>User closes the widget back into the main app</td></tr>
@@ -590,6 +618,8 @@ Format as a concise biweekly report for leadership.</div>
         <li>&#10003; Admin bulk assign + Users tab</li>
         <li>&#10003; Manage Projects (type-to-confirm)</li>
         <li>&#10003; Toast notifications for calendar sync</li>
+        <li>&#10003; Voice-to-text dictation for notes</li>
+        <li>&#10003; note_text property on Note Submitted</li>
       </ul>
     </div>
     <div class="roadmap-col">
