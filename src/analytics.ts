@@ -1,7 +1,9 @@
 import * as amplitude from '@amplitude/analytics-browser';
+import { plugin as engagementPlugin } from '@amplitude/engagement-browser';
 
 export type TimerSource = 'main' | 'pip_widget' | 'calendar';
 
+amplitude.add(engagementPlugin());
 amplitude.init('ee3c1fe9d2a36f00d52242cee2643bbd', {
   autocapture: {
     attribution: true,
